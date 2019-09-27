@@ -94,15 +94,16 @@
   (fast-write-sequence (ascii-string-to-octets (string method)) buffer)
   (fast-write-byte #.(char-code #\Space) buffer)
   (fast-write-sequence (ascii-string-to-octets
-                         (format nil "~A~:[~;~:*?~A~]"
-                                 (or (uri-path uri) "/")
-                                 (uri-query uri)))
+			(format nil "~A~:[~;~:*?~A~]"
+				(or (uri-path uri) "/")
+				(uri-query uri)))
                        buffer)
   (fast-write-byte #.(char-code #\Space) buffer)
-  (fast-write-sequence (ecase version
-                         (1.1 (ascii-string-to-octets "HTTP/1.1"))
-                         (1.0 (ascii-string-to-octets "HTTP/1.0")))
-                       buffer)
+  (fast-write-sequence (cond ((= version 1)
+			      (ascii-string-to-octets "HTTP/1.0"))
+			     ((= version 1.1)
+			      (ascii-string-to-octets "HTTP/1.1"))) 
+		       buffer)
   (fast-write-sequence +crlf+ buffer))
 
 (defun write-header-field (name buffer)
