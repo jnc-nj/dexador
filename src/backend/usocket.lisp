@@ -439,7 +439,6 @@
                             (proxy-uri (and proxy (quri:uri proxy))))
   (declare (ignorable ssl-key-file ssl-cert-file ssl-key-password
                       connect-timeout ca-path)
-           ;;(type single-float version)
            (type fixnum max-redirects))
   (labels ((make-new-connection (uri)
              (restart-case
@@ -499,9 +498,7 @@
                          (string= scheme "socks5")))))
            (connection-keep-alive-p (connection-header)
              (and keep-alive
-                  (or (and (= version 1)
-			   ;;(= (the single-float version) 1.0)			   
-			   (equalp connection-header "keep-alive"))
+                  (or (and (= version 1) (equalp connection-header "keep-alive"))
                       (not (equalp connection-header "close")))))
            (finalize-connection (stream connection-header uri)
              (if (or want-stream
@@ -557,13 +554,9 @@
 		(write-header* :host (uri-authority uri))
 		(write-header* :accept "*/*")
 		(cond
-		  ((and keep-alive
-			;;(= (the single-float version) 1.0)
-			(= version 1))
+		  ((and keep-alive (= version 1))
 		   (write-header* :connection "keep-alive"))
-		  ((and (not keep-alive)
-			;;(= (the single-float version) 1.1)
-			(= version 1.1))
+		  ((and (not keep-alive) (= version 1.1))
 		   (write-header* :connection "close")))
 		(when basic-auth
 		  (write-header* :authorization
@@ -597,7 +590,8 @@
 		     (string
 		      (write-header* :content-type (or content-type "text/plain"))
 		      (unless chunkedp
-			(write-header* :content-length (length (the (simple-array (unsigned-byte 8) *) (babel:string-to-octets content))))))
+			(write-header* :content-length (length (the (simple-array (unsigned-byte 8) *)
+								    (babel:string-to-octets content))))))
 		     ((array (unsigned-byte 8) *)
 		      (write-header* :content-type (or content-type "text/plain"))
 		      (unless chunkedp
@@ -606,7 +600,7 @@
 		      (write-header* :content-type (or content-type (mimes:mime content)))
 		      (unless chunkedp
 			(if-let ((content-length (assoc :content-length headers :test #'string-equal)))
-			    (write-header :content-length (cdr content-length))
+			  (write-header :content-length (cdr content-length))
 			  (with-open-file (in content)
 			    (write-header :content-length (file-length in)))))))))
 
