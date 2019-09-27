@@ -439,7 +439,7 @@
                             (proxy-uri (and proxy (quri:uri proxy))))
   (declare (ignorable ssl-key-file ssl-cert-file ssl-key-password
                       connect-timeout ca-path)
-           (type single-float version)
+           ;;(type single-float version)
            (type fixnum max-redirects))
   (labels ((make-new-connection (uri)
              (restart-case
@@ -449,7 +449,7 @@
                                                             #-(or ecl clisp allegro) :timeout #-(or ecl clisp allegro) connect-timeout
                                                             :element-type '(unsigned-byte 8)))
                         (stream
-                          (usocket:socket-stream connection))
+			 (usocket:socket-stream connection))
                         (scheme (uri-scheme uri)))
                    (declare (type string scheme))
                    (when read-timeout
@@ -499,8 +499,9 @@
                          (string= scheme "socks5")))))
            (connection-keep-alive-p (connection-header)
              (and keep-alive
-                  (or (and (= (the single-float version) 1.0)
-                           (equalp connection-header "keep-alive"))
+                  (or (and (= version 1)
+			   ;;(= (the single-float version) 1.0)			   
+			   (equalp connection-header "keep-alive"))
                       (not (equalp connection-header "close")))))
            (finalize-connection (stream connection-header uri)
              (if (or want-stream
@@ -512,7 +513,7 @@
     (let* ((uri (quri:uri uri))
            (proxy (when (http-proxy-p proxy-uri) proxy))
            (content-type
-             (cdr (find :content-type headers :key #'car :test #'eq)))
+	    (cdr (find :content-type headers :key #'car :test #'eq)))
            (multipart-p (and (not content-type)
                              (consp content)
                              (find-if #'pathnamep content :key #'cdr)))
@@ -533,104 +534,106 @@
            (stream (or stream
                        (make-new-connection uri)))
            (content-length
-             (assoc :content-length headers :test #'string-equal))
+	    (assoc :content-length headers :test #'string-equal))
            (transfer-encoding
-             (assoc :transfer-encoding headers :test #'string-equal))
+	    (assoc :transfer-encoding headers :test #'string-equal))
            (chunkedp (or (and transfer-encoding
                               (equalp (cdr transfer-encoding) "chunked"))
                          (and content-length
                               (null (cdr content-length)))))
            (first-line-data
-             (with-fast-output (buffer)
-               (write-first-line method uri version buffer)))
+	    (with-fast-output (buffer)
+	      (write-first-line method uri version buffer)))
            (headers-data
-             (flet ((write-header* (name value)
-                      (let ((header (assoc name headers :test #'string-equal)))
-                        (if header
-                            (when (cdr header)
-                              (write-header name (cdr header)))
-                            (write-header name value)))
-                      (values)))
-               (with-header-output (buffer)
-                 (write-header* :user-agent #.*default-user-agent*)
-                 (write-header* :host (uri-authority uri))
-                 (write-header* :accept "*/*")
-                 (cond
-                   ((and keep-alive
-                         (= (the single-float version) 1.0))
-                    (write-header* :connection "keep-alive"))
-                   ((and (not keep-alive)
-                         (= (the single-float version) 1.1))
-                    (write-header* :connection "close")))
-                 (when basic-auth
-                   (write-header* :authorization
-                                  (format nil "Basic ~A"
-                                          (string-to-base64-string
-                                           (format nil "~A:~A"
-                                                   (car basic-auth)
-                                                   (cdr basic-auth))))))
-                 (when proxy
-                   (let ((scheme (quri:uri-scheme uri)))
-                     (when (string= scheme "http")
-                       (let* ((uri (quri:uri proxy))
-                              (proxy-authorization (make-proxy-authorization uri)))
-                         (when proxy-authorization
-                           (write-header* :proxy-authorization proxy-authorization))))))
-                 (cond
-                   (multipart-p
-                    (write-header* :content-type (format nil "multipart/form-data; boundary=~A" boundary))
-                    (unless chunkedp
-                      (write-header* :content-length
-                                     (multipart-content-length content boundary))))
-                   (form-urlencoded-p
-                    (write-header* :content-type "application/x-www-form-urlencoded")
-                    (unless chunkedp
-                      (write-header* :content-length (length (the string content)))))
-                   (t
-                    (etypecase content
-                      (null
-                       (unless chunkedp
-                         (write-header* :content-length 0)))
-                      (string
-                       (write-header* :content-type (or content-type "text/plain"))
-                       (unless chunkedp
-                         (write-header* :content-length (length (the (simple-array (unsigned-byte 8) *) (babel:string-to-octets content))))))
-                      ((array (unsigned-byte 8) *)
-                       (write-header* :content-type (or content-type "text/plain"))
-                       (unless chunkedp
-                         (write-header* :content-length (length content))))
-                      (pathname
-                       (write-header* :content-type (or content-type (mimes:mime content)))
-                       (unless chunkedp
-                         (if-let ((content-length (assoc :content-length headers :test #'string-equal)))
-                           (write-header :content-length (cdr content-length))
-                           (with-open-file (in content)
-                             (write-header :content-length (file-length in)))))))))
+	    (flet ((write-header* (name value)
+		     (let ((header (assoc name headers :test #'string-equal)))
+		       (if header
+			   (when (cdr header)
+			     (write-header name (cdr header)))
+			   (write-header name value)))
+		     (values)))
+	      (with-header-output (buffer)
+		(write-header* :user-agent #.*default-user-agent*)
+		(write-header* :host (uri-authority uri))
+		(write-header* :accept "*/*")
+		(cond
+		  ((and keep-alive
+			;;(= (the single-float version) 1.0)
+			(= version 1))
+		   (write-header* :connection "keep-alive"))
+		  ((and (not keep-alive)
+			;;(= (the single-float version) 1.1)
+			(= version 1.1))
+		   (write-header* :connection "close")))
+		(when basic-auth
+		  (write-header* :authorization
+				 (format nil "Basic ~A"
+					 (string-to-base64-string
+					  (format nil "~A:~A"
+						  (car basic-auth)
+						  (cdr basic-auth))))))
+		(when proxy
+		  (let ((scheme (quri:uri-scheme uri)))
+		    (when (string= scheme "http")
+		      (let* ((uri (quri:uri proxy))
+			     (proxy-authorization (make-proxy-authorization uri)))
+			(when proxy-authorization
+			  (write-header* :proxy-authorization proxy-authorization))))))
+		(cond
+		  (multipart-p
+		   (write-header* :content-type (format nil "multipart/form-data; boundary=~A" boundary))
+		   (unless chunkedp
+		     (write-header* :content-length
+				    (multipart-content-length content boundary))))
+		  (form-urlencoded-p
+		   (write-header* :content-type "application/x-www-form-urlencoded")
+		   (unless chunkedp
+		     (write-header* :content-length (length (the string content)))))
+		  (t
+		   (etypecase content
+		     (null
+		      (unless chunkedp
+			(write-header* :content-length 0)))
+		     (string
+		      (write-header* :content-type (or content-type "text/plain"))
+		      (unless chunkedp
+			(write-header* :content-length (length (the (simple-array (unsigned-byte 8) *) (babel:string-to-octets content))))))
+		     ((array (unsigned-byte 8) *)
+		      (write-header* :content-type (or content-type "text/plain"))
+		      (unless chunkedp
+			(write-header* :content-length (length content))))
+		     (pathname
+		      (write-header* :content-type (or content-type (mimes:mime content)))
+		      (unless chunkedp
+			(if-let ((content-length (assoc :content-length headers :test #'string-equal)))
+			    (write-header :content-length (cdr content-length))
+			  (with-open-file (in content)
+			    (write-header :content-length (file-length in)))))))))
 
-                 ;; Transfer-Encoding: chunked
-                 (when (and chunkedp
-                            (not transfer-encoding))
-                   (write-header* :transfer-encoding "chunked"))
+		;; Transfer-Encoding: chunked
+		(when (and chunkedp
+			   (not transfer-encoding))
+		  (write-header* :transfer-encoding "chunked"))
 
-                 ;; Custom headers
-                 (loop for (name . value) in headers
-                       unless (member name '(:user-agent :host :accept
-                                             :connection
-                                             :content-type :content-length) :test #'string-equal)
-                         do (write-header name value)))))
+		;; Custom headers
+		(loop for (name . value) in headers
+		   unless (member name '(:user-agent :host :accept
+					 :connection
+					 :content-type :content-length) :test #'string-equal)
+		   do (write-header name value)))))
            (cookie-headers (and cookie-jar
                                 (build-cookie-headers uri cookie-jar))))
       (macrolet ((with-retrying (&body body)
                    `(if reusing-stream-p
                         (handler-bind ((error
-                                         (lambda (e)
-                                           (declare (ignore e))
-                                           (ignore-errors (close stream))
-                                           (when reusing-stream-p
-                                             (setf use-connection-pool nil
-                                                   reusing-stream-p nil
-                                                   stream (make-new-connection uri))
-                                             (go retry)))))
+					(lambda (e)
+					  (declare (ignore e))
+					  (ignore-errors (close stream))
+					  (when reusing-stream-p
+					    (setf use-connection-pool nil
+						  reusing-stream-p nil
+						  stream (make-new-connection uri))
+					    (go retry)))))
                           ,@body)
                         (restart-case
                             (progn ,@body)
@@ -641,7 +644,7 @@
         (tagbody
          retry
            (with-retrying
-             (write-sequence first-line-data stream)
+	       (write-sequence first-line-data stream)
              (write-sequence headers-data stream)
              (when cookie-headers
                (write-sequence cookie-headers stream))
@@ -656,15 +659,15 @@
                (when chunkedp
                  (setf (chunga:chunked-stream-output-chunking-p stream) t))
                (with-retrying
-                 (etypecase content
-                   (string
-                    (write-sequence (babel:string-to-octets content) stream))
-                   ((array (unsigned-byte 8) *)
-                    (write-sequence content stream))
-                   (pathname (with-open-file (in content :element-type '(unsigned-byte 8))
-                               (copy-stream in stream)))
-                   (cons
-                    (write-multipart-content content boundary stream)))
+		   (etypecase content
+		     (string
+		      (write-sequence (babel:string-to-octets content) stream))
+		     ((array (unsigned-byte 8) *)
+		      (write-sequence content stream))
+		     (pathname (with-open-file (in content :element-type '(unsigned-byte 8))
+				 (copy-stream in stream)))
+		     (cons
+		      (write-multipart-content content boundary stream)))
                  (when chunkedp
                    (setf (chunga:chunked-stream-output-chunking-p stream) nil))
                  (finish-output stream))))
@@ -684,11 +687,11 @@
                  (unless reusing-stream-p
                    ;; There's nothing we can do.
                    (with-restarts
-                     (http-request-failed status
-                                          :body body
-                                          :headers headers
-                                          :uri uri
-                                          :method method)))
+		       (http-request-failed status
+					    :body body
+					    :headers headers
+					    :uri uri
+					    :method method)))
                  (setf use-connection-pool nil
                        reusing-stream-p nil
                        stream (make-new-connection uri))
@@ -718,7 +721,7 @@
                       (dotimes (i content-length)
                         (loop until (read-byte body nil nil))))
                      (transfer-encoding-p
-                       (read-until-crlf*2 body))))
+		      (read-until-crlf*2 body))))
 
                  (let ((location-uri (quri:uri (gethash "location" response-headers))))
                    (if (and (or (null (uri-host location-uri))
@@ -773,11 +776,11 @@
                       ;; Raise an error when the HTTP response status code is 4xx or 50x.
                       (when (<= 400 status)
                         (with-restarts
-                          (http-request-failed status
-                                               :body body
-                                               :headers response-headers
-                                               :uri uri
-                                               :method method)))
+			    (http-request-failed status
+						 :body body
+						 :headers response-headers
+						 :uri uri
+						 :method method)))
                       (return-from request
                         (values body
                                 status
