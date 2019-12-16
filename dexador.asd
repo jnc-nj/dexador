@@ -25,25 +25,26 @@
                "cl-base64"
                "cl-reexport"
                "usocket"
+	       "log4cl"
                (:feature :windows "winhttp")
                (:feature :windows "flexi-streams")
                (:feature (:and (:not :windows) (:not :dexador-no-ssl)) "cl+ssl")
                "bordeaux-threads"
                "alexandria")
   :components ((:module "src"
-                :components
-                ((:file "dexador" :depends-on ("backend" "error"))
-                 (:file "encoding")
-                 (:file "connection-cache")
-                 (:file "decoding-stream")
-                 (:file "keep-alive-stream")
-                 (:file "body" :depends-on ("encoding" "decoding-stream" "util"))
-                 (:file "error")
-                 (:file "util")
-                 (:module "backend"
-                  :depends-on ("encoding" "connection-cache" "decoding-stream" "keep-alive-stream" "body" "error" "util")
-                  :components
-                  ((:file "usocket")
-                   (:file "winhttp" :if-feature :windows))))))
+			:components
+			((:file "dexador" :depends-on ("backend" "error"))
+			 (:file "encoding")
+			 (:file "connection-cache")
+			 (:file "decoding-stream")
+			 (:file "keep-alive-stream")
+			 (:file "body" :depends-on ("encoding" "decoding-stream" "util"))
+			 (:file "error")
+			 (:file "util")
+			 (:module "backend"
+				  :depends-on ("encoding" "connection-cache" "decoding-stream" "keep-alive-stream" "body" "error" "util")
+				  :components
+				  ((:file "usocket")
+				   (:file "winhttp" :if-feature :windows))))))
   :description "Yet another HTTP client for Common Lisp"
   :in-order-to ((test-op (test-op "dexador-test"))))
