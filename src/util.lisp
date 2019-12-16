@@ -91,23 +91,23 @@
 (defparameter *header-buffer* nil)
 
 (defun write-first-line (method uri version &optional (buffer *header-buffer*))
-  (log:info "write method")
+  ;;(log:info "write method")
   (fast-write-sequence (ascii-string-to-octets (string method)) buffer)
   (fast-write-byte #.(char-code #\Space) buffer)
-  (log:info "write uri")
+  ;;(log:info "write uri")
   (fast-write-sequence (ascii-string-to-octets
 			(format nil "~A~:[~;~:*?~A~]"
 				(or (uri-path uri) "/")
 				(uri-query uri)))
                        buffer)
   (fast-write-byte #.(char-code #\Space) buffer)
-  (log:info "write version")
+  ;;(log:info "write version")
   (fast-write-sequence (cond ((= version 1)
 			      (ascii-string-to-octets "HTTP/1.0"))
 			     ((= version 1.1)
 			      (ascii-string-to-octets "HTTP/1.1"))) 
 		       buffer)
-  (log:info "write crlf")
+  ;;(log:info "write crlf")
   (fast-write-sequence +crlf+ buffer))
 
 (defun write-header-field (name buffer)
